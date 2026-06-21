@@ -737,7 +737,7 @@ impl SDStatus {
     }
     /// Indicates N_Erase, in units of AU
     pub fn erase_size(&self) -> u16 {
-        (self.inner_word(13) & 0xFF) as u16 | ((self.inner_word(12) >> 24) & 0xFF) as u16
+        ((self.inner_word(13) & 0xFF) as u16) << 8 | ((self.inner_word(12) >> 24) & 0xFF) as u16
     }
     /// Indicates T_Erase / Erase Timeout (s)
     pub fn erase_timeout(&self) -> u8 {
