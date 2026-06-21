@@ -244,12 +244,15 @@ pub trait MmcBus {
 
     /// Tune the bus, if required. Called after the bus is set to the target frequency; needed for uhs.
     #[allow(unused_variables)]
-    fn tune_bus(
+    fn tune_bus<C>(
         &mut self,
         width: BusWidth,
         hz: u32,
-        check_card: impl AsyncFnMut(&mut Self) -> bool,
-    ) -> impl Future<Output = Result<(), MmcError>> {
+        status_command: &C,
+    ) -> impl Future<Output = Result<(), MmcError>>
+    where
+        C: ControlCommand,
+    {
         async { Ok(()) }
     }
 
@@ -277,6 +280,79 @@ pub trait MmcBus {
     /// Optional: the maximum frequency supported by this bus. Defaults to 25Mhz
     fn supports_frequency(&self) -> u32 {
         25_000_000
+    }
+}
+
+impl<T: MmcBus> MmcBus for &mut T {
+    async fn send_command<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    where
+        C: ControlCommand + 'a,
+    {
+        T::send_command(self, cmd).await
+    }
+
+    async fn read_blocks<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    where
+        C: BlockReadCommand + 'a,
+    {
+        T::read_blocks(self, cmd).await
+    }
+
+    async fn write_blocks<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    where
+        C: BlockWriteCommand + 'a,
+    {
+        T::write_blocks(self, cmd).await
+    }
+
+    async fn read_bytes<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    where
+        C: ByteReadCommand + 'a,
+    {
+        T::read_bytes(self, cmd).await
+    }
+
+    async fn write_bytes<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    where
+        C: ByteWriteCommand + 'a,
+    {
+        T::write_bytes(self, cmd).await
+    }
+
+    async fn tune_bus<C>(
+        &mut self,
+        width: BusWidth,
+        hz: u32,
+        status_command: &C,
+    ) -> Result<(), MmcError>
+    where
+        C: ControlCommand,
+    {
+        T::tune_bus(self, width, hz, status_command).await
+    }
+
+    async fn init_idle(&mut self, hz: u32) -> Result<(), MmcError> {
+        T::init_idle(self, hz).await
+    }
+
+    fn set_bus(&mut self, width: BusWidth, hz: u32) -> Result<(), MmcError> {
+        T::set_bus(self, width, hz)
+    }
+
+    fn supports_1v8(&self) -> bool {
+        T::supports_1v8(self)
+    }
+
+    fn supports_bus_width(&self) -> BusWidth {
+        T::supports_bus_width(self)
+    }
+
+    fn supports_frequency(&self) -> u32 {
+        T::supports_frequency(self)
+    }
+
+    fn supports_mmc(&self) -> bool {
+        T::supports_mmc(self)
     }
 }
 
@@ -518,17 +594,6 @@ impl Response for R5 {
     }
 }
 
-/// Check whether the card is ready for data
-async fn check_card(bus: &mut impl MmcBus, rca: u16) -> bool {
-    if let Ok(status) = bus.send_command(common::card_status(rca, false)).await
-        && CardStatus::<()>::from(status).ready_for_data()
-    {
-        true
-    } else {
-        false
-    }
-}
-
 // Allow passing `ControlCommand` by reference
 impl<T: ControlCommand> Command for &T {
     const INDEX: u8 = T::INDEX;
@@ -562,6 +627,20 @@ impl<B: MmcBus, D: DelayNs> BusAdapter<B, D> {
         Ok(())
     }
 
+    /// Check whether the card is ready for data
+    async fn check_card(&mut self) -> bool {
+        if let Ok(status) = self
+            .bus
+            .send_command(common::card_status(self.rca, false))
+            .await
+            && CardStatus::<()>::from(status).ready_for_data()
+        {
+            true
+        } else {
+            false
+        }
+    }
+
     /// Wait for the card to be ready if required
     async fn wait_if_required<R: Response>(&mut self) -> Result<(), MmcError> {
         if !R::BUSY {
@@ -571,7 +650,7 @@ impl<B: MmcBus, D: DelayNs> BusAdapter<B, D> {
         // Wait up to 750ms + cmd time for ready after R1b response
         // Note: this is a rather simplistic timeout loop. It can be improved later.
         for _ in 0..750 {
-            if check_card(&mut self.bus, self.rca).await {
+            if self.check_card().await {
                 return Ok(());
             }
 

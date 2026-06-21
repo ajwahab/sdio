@@ -6,7 +6,7 @@ use embedded_hal_async::delay::DelayNs;
 pub use crate::common::*;
 use crate::{
     Addressable, BlockCommand, BlockDevice, BlockReadCommand, BusAdapter, BusWidth, Command,
-    ControlCommand, MmcBus, MmcError, R1, R3, R6, R7, Signalling, check_card, common, sd,
+    ControlCommand, MmcBus, MmcError, R1, R3, R6, R7, Signalling, common, sd,
 };
 
 /// Type marker for SD-specific extensions.
@@ -984,20 +984,13 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLO
                 // Up to max_f
                 self.bus.bus.set_bus(bus_width, freq)?;
 
-                self.bus
-                    .bus
-                    .tune_bus(bus_width, freq, async |bus| {
-                        check_card(bus, self.bus.rca).await
-                    })
-                    .await?;
+                let status_cmd = common::card_status(self.bus.rca, false);
 
-                let status: CardStatus<SD> = self
-                    .bus
-                    .send_command(common::card_status(self.info.rca, false), false)
-                    .await?
-                    .into();
+                self.bus.bus.tune_bus(bus_width, freq, &status_cmd).await?;
 
-                if status.state() != CurrentState::Transfer {
+                if CardStatus::<SD>::from(self.bus.send_command(&status_cmd, false).await?).state()
+                    != CurrentState::Transfer
+                {
                     return Err(MmcError::SignalingSwitchFailed);
                 }
             } else {
