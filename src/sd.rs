@@ -975,7 +975,7 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLO
         // Use 4-bit only if both the peripheral is configured for it AND the card supports it
         let (bus_width, acmd_arg) = match configured_bus_width {
             BusWidth::W4 if self.info.scr.bus_width_four() => (BusWidth::W4, 2),
-            _ => (BusWidth::W4, 0),
+            _ => (BusWidth::W1, 0),
         };
 
         self.bus
