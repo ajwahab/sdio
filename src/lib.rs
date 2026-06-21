@@ -50,6 +50,16 @@ pub enum ResponseLen {
     R136,
 }
 
+impl ResponseLen {
+    pub const fn words(&self) -> usize {
+        match self {
+            Self::Zero => 0,
+            Self::R48 => 1,
+            Self::R136 => 4,
+        }
+    }
+}
+
 /// ---------------------------------------------------------------------------
 /// Response Trait
 /// ---------------------------------------------------------------------------
