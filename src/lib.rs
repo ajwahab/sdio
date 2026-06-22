@@ -14,7 +14,7 @@ use embedded_hal_async::delay::DelayNs;
 
 use crate::sd::{
     BlockSize, CardCapacity, CardStatus, OCR, read_multiple_blocks, read_single_block,
-    set_block_length, write_multiple_blocks, write_single_block,
+    set_block_length, stop_transmission, write_multiple_blocks, write_single_block,
 };
 
 pub mod common;
@@ -800,6 +800,9 @@ pub trait Addressable: Acquireable {
 
     /// Whether the device supports `CMD23 (SET_BLOCK_COUNT)`.
     fn supports_cmd23(&self) -> bool;
+
+    /// Whether the device supports `ACMD23`.
+    fn supports_acmd23(&self) -> bool;
 }
 
 /// Represents a block storage device
@@ -929,9 +932,25 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
             _ => block_idx,
         };
 
+        if self.info.supports_acmd23() {
+            self.bus
+                .send_command(sd::set_block_count(blocks.len() as u32), true)
+                .await?;
+        }
+
+        if self.info.supports_cmd23() {
+            self.bus
+                .send_command(sd::set_block_count(blocks.len() as u32), false)
+                .await?;
+        }
+
         self.bus
             .write_blocks(write_multiple_blocks(addr, blocks), false)
             .await?;
+
+        if !self.info.supports_cmd23() {
+            self.bus.send_command(stop_transmission(), false).await?;
+        }
 
         Ok(())
     }

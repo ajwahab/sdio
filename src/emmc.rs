@@ -532,6 +532,10 @@ impl Addressable for Emmc {
     fn supports_cmd23(&self) -> bool {
         true // mandatory on eMMC since spec v4.1
     }
+
+    fn supports_acmd23(&self) -> bool {
+        false // app commands are not supported
+    }
 }
 
 impl Acquireable for Emmc {

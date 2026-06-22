@@ -448,6 +448,32 @@ impl SCR {
     pub fn bus_width_four(&self) -> bool {
         (self.inner_word() >> 50) & 1 != 0
     }
+
+    /// Returns the 2-bit Command Support field (SCR[33:32])
+    fn command_support(&self) -> u8 {
+        ((self.inner_word() >> 32) as u8) & 0x3
+    }
+
+    /// CMD20 supported
+    pub fn supports_cmd20(&self) -> bool {
+        (self.command_support() & 0b0001) != 0
+    }
+
+    /// Returns true if ACMD23 (SET_WR_BLK_ERASE_COUNT) is supported
+    pub fn supports_acmd23(&self) -> bool {
+        // Bit 1 of the Command Support field
+        (self.command_support() & 0b10) != 0
+    }
+
+    /// CMD48 supported
+    pub fn supports_cmd48(&self) -> bool {
+        (self.command_support() & 0b0100) != 0
+    }
+
+    /// CMD49 supported
+    pub fn supports_cmd49(&self) -> bool {
+        (self.command_support() & 0b1000) != 0
+    }
 }
 impl core::fmt::Debug for SCR {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -596,6 +622,11 @@ impl CSD<SD> {
     /// Card size in bytes
     pub fn card_size(&self) -> u64 {
         self.block_count() * self.block_length().len() as u64
+    }
+
+    /// Whether cmd23 is supported
+    pub fn supports_cmd23(&self) -> bool {
+        (self.0 >> 30) & 0b11 != 0
     }
 
     /// Erase size (in blocks)
@@ -818,9 +849,11 @@ impl Addressable for SdCard {
     }
 
     fn supports_cmd23(&self) -> bool {
-        // SCR.CMD_SUPPORT[1] per PLSS Table 5-21. CMD_SUPPORT lives at
-        // SCR bits [35:32]; bit 1 = Set Block Count.
-        (self.scr.inner_word() >> 33) & 1 != 0
+        self.csd.supports_cmd23()
+    }
+
+    fn supports_acmd23(&self) -> bool {
+        self.scr.supports_acmd23()
     }
 }
 
