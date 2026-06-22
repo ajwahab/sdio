@@ -502,8 +502,6 @@ impl From<u16> for RCA<EMMC> {
 #[derive(Clone, Copy, Debug, Default)]
 /// eMMC storage
 pub struct Emmc {
-    /// The capacity of this card
-    pub capacity: CardCapacity,
     /// Operation Conditions Register
     pub ocr: OCR<EMMC>,
     /// Card ID
@@ -519,7 +517,11 @@ impl Addressable for Emmc {
 
     /// Is this a standard or high capacity peripheral?
     fn get_capacity(&self) -> CardCapacity {
-        self.capacity
+        if self.ocr.access_mode() == 0b10 {
+            CardCapacity::HighCapacity
+        } else {
+            CardCapacity::StandardCapacity
+        }
     }
 
     /// Size in bytes
@@ -573,18 +575,12 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Emmc, B, D, BLO
 
         self.info.ocr = self.bus.get_ocr(&send_op_cond(op_cond), false).await?;
 
-        self.info.capacity = if self.info.ocr.access_mode() == 0b10 {
-            // Card is SDHC or SDXC or SDUC
-            CardCapacity::HighCapacity
-        } else {
-            CardCapacity::StandardCapacity
-        };
-
         self.info.cid = self
             .bus
             .send_command(common::all_send_cid(), false)
             .await?
             .into();
+
         self.bus.rca = 1u16.into();
 
         self.bus
@@ -597,7 +593,6 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Emmc, B, D, BLO
             .await?
             .into();
 
-        // Select card
         self.bus.select_card(Some(self.bus.rca)).await?;
 
         let widbus = match bus_width {
@@ -606,12 +601,12 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Emmc, B, D, BLO
             BusWidth::W8 => 2,
         };
 
-        // Write bus width to ExtCSD byte 183
         self.bus
             .send_command(modify_ext_csd(AccessMode::WriteByte, 183, widbus), false)
             .await?;
 
         self.bus.bus.set_bus(bus_width, freq)?;
+
         self.bus
             .read_blocks(send_ext_csd(&mut self.info.ext_csd), false)
             .await?;

@@ -419,9 +419,8 @@ impl Response for R1 {
     }
 }
 
-/// ------------------------------
 /// R1b — R1 + busy on DAT0
-/// ------------------------------
+///
 /// 48-bit, CRC-checked, *busy*
 /// Card holds DAT0 low until internal operation completes.
 pub struct R1b {
@@ -438,9 +437,8 @@ impl Response for R1b {
     }
 }
 
-/// ------------------------------
 /// R2 — CID/CSD (136-bit)
-/// ------------------------------
+///
 /// 136-bit, CRC-checked, no busy
 pub struct R2 {
     pub words: [u32; 4],
@@ -458,9 +456,8 @@ impl Response for R2 {
     }
 }
 
-/// ------------------------------
 /// R3 — OCR (Operating Conditions)
-/// ------------------------------
+///
 /// 48-bit, *no CRC*, no busy
 /// Used during initialization before CRC is enabled.
 pub struct R3 {
@@ -477,9 +474,8 @@ impl Response for R3 {
     }
 }
 
-/// ------------------------------
 /// R6 — Published RCA (SD only)
-/// ------------------------------
+///
 /// 48-bit, CRC-checked, no busy
 pub struct R6 {
     pub rca: u16,
@@ -500,9 +496,8 @@ impl Response for R6 {
     }
 }
 
-/// ------------------------------
 /// R7 — Interface condition (CMD8)
-/// ------------------------------
+///
 /// 48-bit, CRC-checked, no busy
 pub struct R7 {
     pub voltage: u8,
@@ -527,9 +522,8 @@ impl Response for R7 {
 /// SDIO RESPONSES
 /// ===========================================================================
 
-/// ------------------------------
 /// R4 — SDIO OCR + capability
-/// ------------------------------
+///
 /// 48-bit, *no CRC*, no busy
 /// Returned by CMD5 (IO_SEND_OP_COND)
 pub struct R4 {
@@ -546,9 +540,8 @@ impl Response for R4 {
     }
 }
 
-/// ------------------------------
 /// R5 — SDIO Direct I/O response
-/// ------------------------------
+///
 /// 48-bit, CRC-checked, no busy
 /// Returned by CMD52 (direct I/O)
 pub struct R5 {

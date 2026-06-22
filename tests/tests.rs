@@ -538,14 +538,6 @@ fn test_rca_from_r6_preserves_address_and_status() {
     assert_eq!(rca.status(), 0x0500);
 }
 
-#[tokio::test]
-async fn test_card_rca_is_populated() {
-    // acquire() must copy the working RCA into Card so high-speed CMD13 et al.
-    // address the card instead of RCA 0.
-    let dev = make_device().await;
-    assert_eq!(dev.card().rca, 0x1234);
-}
-
 #[test]
 fn test_block_size_len_is_byte_count_not_discriminant() {
     // The enum tag is not the byte count; only len() returns 512.

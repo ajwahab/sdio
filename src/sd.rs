@@ -788,12 +788,8 @@ impl RCA<SD> {
 #[derive(Clone, Copy, Debug, Default)]
 /// SD Card
 pub struct Card {
-    /// The type of this card
-    pub card_type: CardCapacity,
     /// Operation Conditions Register
     pub ocr: OCR<SD>,
-    /// Relative Card Address
-    pub rca: u16,
     /// Card ID
     pub cid: CID<SD>,
     /// Card Specific Data
@@ -809,7 +805,11 @@ impl Addressable for Card {
 
     /// Is this a standard or high capacity peripheral?
     fn get_capacity(&self) -> CardCapacity {
-        self.card_type
+        if self.ocr.high_capacity() {
+            CardCapacity::HighCapacity
+        } else {
+            CardCapacity::StandardCapacity
+        }
     }
 
     /// Size in bytes
@@ -890,13 +890,6 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLO
             )
             .await?;
 
-        self.info.card_type = if self.info.ocr.high_capacity() {
-            // Card is SDHC or SDXC or SDUC
-            CardCapacity::HighCapacity
-        } else {
-            CardCapacity::StandardCapacity
-        };
-
         if !self.bus.bus.supports_mmc() {
             // SPI mode
             self.info.ocr = self.bus.send_command(read_ocr(), false).await?.into();
@@ -936,7 +929,6 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLO
                 .await?,
         )
         .address();
-        self.info.rca = self.bus.rca;
 
         self.info.csd = self
             .bus
@@ -944,9 +936,8 @@ impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLO
             .await?
             .into();
 
-        // Select card
         self.bus.select_card(Some(self.bus.rca)).await?;
-        // Read SCR
+
         self.bus
             .read_blocks(sd::send_scr(&mut self.info.scr), true)
             .await?;
