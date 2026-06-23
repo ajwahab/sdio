@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use sdio::common::{BlockSize, CSD, OCR, RCA};
 use sdio::emmc::EMMC;
-use sdio::sd::{Card, SD};
+use sdio::sd::{Card, SD, SDStatus};
 use sdio::{
     BlockReadCommand, BlockWriteCommand, BusWidth, ByteReadCommand, ByteWriteCommand,
     ControlCommand, MmcBus, MmcError, R3, R6, Response,
@@ -496,6 +496,52 @@ async fn test_read_zeroed_blocks() {
 //     let size = dev.size().await.unwrap();
 //     assert_eq!(size, CARD_BYTES as u64);
 // }
+
+#[tokio::test]
+async fn test_sd_status_parse() {
+    // The first 64 bytes of your ACMD13 response
+    let status = SDStatus::from([
+        128, 0, 0, 0, 3, 0, 0, 0, 4, 0, 144, 0, 20, 5, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+    ]);
+
+    // Bus width: (word 15 >> 30) & 3 = (0x80000000 >> 30) & 3 = 0b10 → W4
+    assert!(matches!(status.bus_width(), Some(BusWidth::W4)));
+
+    // Secure mode: bit 29 of word 15 → 0
+    assert_eq!(status.secure_mode(), false);
+
+    // SD Memory Card Type: low 16 bits of word 15 → 0x0000
+    assert_eq!(status.sd_memory_card_type(), 0);
+
+    // Protected area size: word 14 = 0x03000000 → 50331648 bytes
+    assert_eq!(status.protected_area_size(), 0x03000000);
+
+    // Speed class: byte 8 = 4
+    assert_eq!(status.speed_class(), 4);
+
+    // Move performance: byte 9 = 0
+    assert_eq!(status.move_performance(), 0);
+
+    // AU size: nibble in byte 10 = 0x9 → 9
+    assert_eq!(status.allocation_unit_size(), 9);
+
+    // Erase size: bytes 11–12 = 0x00 0x14 → 0x0014 = 20 AU
+    assert_eq!(status.erase_size(), 20);
+
+    // Erase timeout: bits 23:18 of word 12 = 1
+    assert_eq!(status.erase_timeout(), 1);
+
+    // Video speed class: byte 16 = 0
+    assert_eq!(status.video_speed_class(), 0);
+
+    // Application performance class: nibble in byte 22 = 0
+    assert_eq!(status.app_perf_class(), 0);
+
+    // Discard support: bit 25 of word 8 = 0
+    assert_eq!(status.discard_support(), false);
+}
 
 #[tokio::test]
 async fn test_out_of_bounds_read() {
