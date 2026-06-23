@@ -361,17 +361,13 @@ pub fn app_cmd(rca: u16) -> Cmd55 {
 /// Types of SD Card
 #[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
+#[derive(Default)]
 pub enum CardCapacity {
     /// SDSC / Standard Capacity (<= 2GB)
+    #[default]
     StandardCapacity,
     /// SDHC / High capacity (<= 32GB for SD cards, <= 256GB for eMMC)
     HighCapacity,
-}
-
-impl Default for CardCapacity {
-    fn default() -> Self {
-        CardCapacity::StandardCapacity
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -395,7 +391,8 @@ pub enum BlockSize {
 }
 
 impl BlockSize {
-    // Length of the block size. Will return 0 if unknown.
+    /// Length of the block size. Will return 0 if unknown.
+    #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
         match self {
             BlockSize::B1 => 1,

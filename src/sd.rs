@@ -151,7 +151,7 @@ impl<'a> TuningOp for Cmd19<'a> {
             0x00, 0xFF, 0x55, 0xAA, 0x00, 0xFF, 0x55, 0xAA,
         ];
 
-        if bus.read_blocks(&mut *self).await.is_ok() && &self.buf[..] == TUNING_PATTERN {
+        if bus.read_blocks(&mut *self).await.is_ok() && self.buf[..] == TUNING_PATTERN {
             Ok(true)
         } else {
             Ok(false)
@@ -598,11 +598,11 @@ impl fmt::Debug for OCR<SD> {
 impl CID<SD> {
     /// OEM/Application ID
     pub fn oem_id(&self) -> &str {
-        str::from_utf8(&self.bytes[1..3]).unwrap_or(&"<ERR>")
+        str::from_utf8(&self.bytes[1..3]).unwrap_or("<ERR>")
     }
     /// Product name
     pub fn product_name(&self) -> &str {
-        str::from_utf8(&self.bytes[3..8]).unwrap_or(&"<ERR>")
+        str::from_utf8(&self.bytes[3..8]).unwrap_or("<ERR>")
     }
     /// Product revision
     pub fn product_revision(&self) -> u8 {
@@ -855,7 +855,7 @@ impl RCA<SD> {
 
 #[derive(Clone, Copy, Debug, Default)]
 /// SD Card
-pub struct SdCard {
+pub struct Card {
     /// Operation Conditions Register
     pub ocr: OCR<SD>,
     /// Card ID
@@ -868,7 +868,7 @@ pub struct SdCard {
     pub status: SDStatus,
 }
 
-impl Addressable for SdCard {
+impl Addressable for Card {
     type Ext = SD;
 
     /// Is this a standard or high capacity peripheral?
@@ -882,7 +882,7 @@ impl Addressable for SdCard {
 
     /// Size in bytes
     fn size(&self) -> u64 {
-        u64::from(self.csd.block_count()) * 512
+        self.csd.block_count() * 512
     }
 
     fn supports_cmd23(&self) -> bool {
@@ -895,7 +895,7 @@ impl Addressable for SdCard {
     }
 }
 
-impl Acquirable for SdCard {
+impl Acquirable for Card {
     async fn acquire<B: MmcBus, D: DelayNs>(
         bus: &mut BusAdapter<B, D>,
         block_size: BlockSize,
@@ -912,7 +912,7 @@ impl Acquirable for SdCard {
         };
 
         // CMD8 — check voltage + pattern
-        let cic: CIC = bus.send_command(send_if_cond(1, 0xAA), false).await?.into();
+        let cic: CIC = bus.send_command(send_if_cond(1, 0xAA), false).await?;
         if cic.check_pattern != 0xAA || (cic.voltage & 1) == 0 {
             return Err(MmcError::Unsupported);
         }
@@ -1020,7 +1020,7 @@ impl Acquirable for SdCard {
     }
 }
 
-impl SdCard {
+impl Card {
     /// Switch mode using CMD6.
     ///
     /// Attempt to set a new signalling mode. The selected
@@ -1070,7 +1070,7 @@ impl SdCard {
 }
 
 /// Card Storage Device
-impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<SdCard, B, D, BLOCK_SIZE> {
+impl<B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> BlockDevice<Card, B, D, BLOCK_SIZE> {
     /// Create a new SD card
     pub async fn new_sd_card(bus: B, freq: u32, delay: D) -> Result<Self, MmcError> {
         Self::new(bus, delay, freq).await

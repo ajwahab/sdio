@@ -35,8 +35,8 @@ impl ControlCommand for Cmd5 {}
 ///
 /// * `switch_to_1_8v_request` - Switch to 1.8V signaling
 /// * `voltage_window` - 9-bit bitfield that represents the voltage window
-/// supported by the host. Use 0x1FF to indicate support for the full range of
-/// voltages
+///   supported by the host. Use 0x1FF to indicate support for the full range of
+///   voltages
 pub fn io_send_op_cond(switch_to_1_8v_request: bool, voltage_window: u16) -> Cmd5 {
     Cmd5 {
         switch_to_1_8v_request,
@@ -138,7 +138,7 @@ impl<'a> ByteCommand for Cmd53ByteWrite<'a> {
 
 impl<'a> ByteWriteCommand for Cmd53ByteWrite<'a> {
     fn buf(&self) -> &Aligned<A4, [u8]> {
-        &*self.buf
+        self.buf
     }
 }
 
@@ -362,7 +362,7 @@ pub const fn fbr_base(function: u8) -> u32 {
 /// FBR registers (per function)
 #[inline]
 pub const fn fbr_std_func_if(function: u8) -> u32 {
-    fbr_base(function) + 0x00
+    fbr_base(function)
 }
 #[inline]
 pub const fn fbr_func_enable(function: u8) -> u32 {

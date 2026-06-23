@@ -502,9 +502,9 @@ impl Response for R7 {
     }
 }
 
-/// ===========================================================================
-/// SDIO RESPONSES
-/// ===========================================================================
+// ===========================================================================
+// SDIO RESPONSES
+// ===========================================================================
 
 /// R4 — SDIO OCR + capability
 ///
@@ -595,7 +595,7 @@ impl<T: Command> Command for &T {
         Self: 'a;
 
     fn arg(&self) -> u32 {
-        T::arg(&self)
+        T::arg(self)
     }
 }
 
@@ -608,7 +608,7 @@ impl<T: Command> Command for &mut T {
         Self: 'a;
 
     fn arg(&self) -> u32 {
-        T::arg(&self)
+        T::arg(self)
     }
 }
 
@@ -705,7 +705,7 @@ impl<B: MmcBus, D: DelayNs> BusAdapter<B, D> {
             .send_command(common::select_card(rca.unwrap_or(0)), false)
             .await
         {
-            Err(MmcError::Timeout) if rca == None => Ok(()),
+            Err(MmcError::Timeout) if rca.is_none() => Ok(()),
             result => result.map(|_| ()),
         }
     }

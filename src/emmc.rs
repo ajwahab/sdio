@@ -297,7 +297,7 @@ impl CID<EMMC> {
 
     /// PNM field, indicating product name.
     pub fn product_name(&self) -> &str {
-        str::from_utf8(&self.bytes[3..9]).unwrap_or(&"<ERR>")
+        str::from_utf8(&self.bytes[3..9]).unwrap_or("<ERR>")
     }
 
     /// PRV field, indicating product revision.
@@ -565,7 +565,7 @@ impl Acquirable for Emmc {
             .await?
             .into();
 
-        bus.rca = 1u16.into();
+        bus.rca = 1u16;
 
         bus.send_command(assign_relative_address(bus.rca), false)
             .await?;
