@@ -184,7 +184,6 @@ pub trait ByteWriteCommand: ByteCommand {
 ///
 /// If hardware support is available, methods should not return until DAT0 goes high
 /// if the associated reponse has `BUSY` set to `true`.
-///
 pub trait MmcBus {
     /// Send a command that has no data transfer (e.g., CMD0, CMD8, CMD55).
     ///
@@ -235,6 +234,11 @@ pub trait MmcBus {
     where
         O: TuningOp,
     {
+        async { Ok(()) }
+    }
+
+    /// Wait for DAT1 to be pulled low.
+    fn wait_for_event(&mut self) -> impl Future<Output = Result<(), MmcError>> {
         async { Ok(()) }
     }
 
@@ -306,6 +310,10 @@ impl<T: MmcBus> MmcBus for &mut T {
         O: TuningOp,
     {
         T::tune_bus(self, width, hz, op).await
+    }
+
+    async fn wait_for_event(&mut self) -> Result<(), MmcError> {
+        T::wait_for_event(self).await
     }
 
     async fn init_idle(&mut self, hz: u32) -> Result<(), MmcError> {

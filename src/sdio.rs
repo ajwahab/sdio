@@ -537,6 +537,11 @@ impl<B: MmcBus, D: DelayNs> SdioCard<B, D> {
         Ok(())
     }
 
+    /// Wait for SDIO irq
+    pub async fn wait_for_event(&mut self) -> Result<(), MmcError> {
+        self.bus.bus.wait_for_event().await
+    }
+
     // ── CMD52 helpers (single-byte register access) ───────────────────────────
 
     /// Read a single byte from a function's register space (CMD52).
