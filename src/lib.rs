@@ -560,7 +560,7 @@ impl R5 {
     /// ILLEGAL_COMMAND: command not legal in the current state.
     pub const FLAG_ILLEGAL_COMMAND: u8 = 1 << 6;
     /// General ERROR.
-    pub const FLAG_ERROR: u8 = 1 << 5;
+    pub const FLAG_ERROR: u8 = 1 << 3;
     /// FUNCTION_NUMBER: requested function does not exist on this card.
     pub const FLAG_FUNCTION_NUMBER: u8 = 1 << 1;
     /// OUT_OF_RANGE: register address out of range for this function.
