@@ -461,6 +461,8 @@ pub(crate) const fn block_size(len: usize) -> BlockSize {
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 #[allow(dead_code)]
 pub enum CurrentState {
+    /// Card is in idle state
+    Idle = 0,
     /// Card state is ready
     Ready = 1,
     /// Card is in identification state
@@ -489,6 +491,7 @@ pub enum CurrentState {
 impl From<u8> for CurrentState {
     fn from(n: u8) -> Self {
         match n {
+            0 => Self::Idle,
             1 => Self::Ready,
             2 => Self::Identification,
             3 => Self::Standby,

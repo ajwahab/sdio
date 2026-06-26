@@ -560,7 +560,7 @@ impl R5 {
     /// ILLEGAL_COMMAND: command not legal in the current state.
     pub const FLAG_ILLEGAL_COMMAND: u8 = 1 << 6;
     /// General ERROR.
-    pub const FLAG_ERROR: u8 = 1 << 5;
+    pub const FLAG_ERROR: u8 = 1 << 3;
     /// FUNCTION_NUMBER: requested function does not exist on this card.
     pub const FLAG_FUNCTION_NUMBER: u8 = 1 << 1;
     /// OUT_OF_RANGE: register address out of range for this function.
@@ -980,7 +980,7 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
 
         if self.info.supports_acmd23() {
             self.bus
-                .send_command(sd::set_block_count(blocks.len() as u32), true)
+                .send_command(sd::set_wr_blk_erase_count(blocks.len() as u32), true)
                 .await?;
         }
 
