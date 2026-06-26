@@ -347,6 +347,26 @@ pub fn sd_status(status: &mut SDStatus) -> Acmd13<'_> {
     }
 }
 
+/// ACMD23 — SET_WR_BLK_ERASE_COUNT
+pub struct Acmd23 {
+    pub block_count: u32,
+}
+impl Command for Acmd23 {
+    const INDEX: u8 = 23;
+    type Resp<'a> = R1;
+    fn arg(&self) -> u32 {
+        // Number of write blocks to be pre-erased is a 23-bit field [22:0].
+        self.block_count & 0x7F_FFFF
+    }
+}
+impl ControlCommand for Acmd23 {}
+
+/// ACMD23 — SET_WR_BLK_ERASE_COUNT: set the number of write blocks to be
+/// pre-erased before the next multi-block write, to speed up the write.
+pub fn set_wr_blk_erase_count(block_count: u32) -> Acmd23 {
+    Acmd23 { block_count }
+}
+
 /// ACMD41 — SD_SEND_OP_COND
 pub struct Acmd41 {
     pub host_high_capacity_support: bool,
@@ -484,7 +504,7 @@ impl SCR {
 
     /// SD Security Version
     pub fn security(&self) -> SDSecurity {
-        let val = ((self.inner_word() >> 56) & 0xF) as u8;
+        let val = ((self.inner_word() >> 52) & 0x7) as u8;
         match val {
             0 => SDSecurity::None,
             1 => SDSecurity::V1,
@@ -495,7 +515,7 @@ impl SCR {
     }
 
     pub fn data_after_erase(&self) -> SDEraseDataStatus {
-        let val = ((self.inner_word() >> 54) & 0x3) as u8;
+        let val = ((self.inner_word() >> 55) & 0x1) as u8;
         match val {
             0 => SDEraseDataStatus::Zero,
             1 => SDEraseDataStatus::Ones,
@@ -537,9 +557,9 @@ impl SCR {
         (self.inner_word() >> 50) & 1 != 0
     }
 
-    /// Returns the 2-bit Command Support field (SCR[33:32])
+    /// Returns the 4-bit Command Support field (SCR[35:32])
     fn command_support(&self) -> u8 {
-        ((self.inner_word() >> 32) as u8) & 0x3
+        ((self.inner_word() >> 32) as u8) & 0xF
     }
 
     /// CMD20 supported
@@ -547,9 +567,8 @@ impl SCR {
         (self.command_support() & 0b0001) != 0
     }
 
-    /// Returns true if ACMD23 (SET_WR_BLK_ERASE_COUNT) is supported
-    pub fn supports_acmd23(&self) -> bool {
-        // Bit 1 of the Command Support field
+    /// Returns true if CMD23 (SET_BLK_COUNT) is supported
+    pub fn supports_cmd23(&self) -> bool {
         (self.command_support() & 0b10) != 0
     }
 
@@ -580,7 +599,7 @@ impl core::fmt::Debug for SCR {
                 ),
             )
             .field("CMD20", &self.supports_cmd20())
-            .field("ACMD23", &self.supports_acmd23())
+            .field("CMD23", &self.supports_cmd23())
             .field("CMD48", &self.supports_cmd48())
             .field("CMD49", &self.supports_cmd49())
             .finish()
@@ -842,7 +861,7 @@ impl SDStatus {
 
     /// Read a 32‑bit big‑endian word from the SD Status structure.
     ///
-    /// WORD0 = bytes 0..4  
+    /// WORD0 = bytes 0..4
     /// WORD15 = bytes 60..64
     #[inline]
     fn word(&self, index: usize) -> u32 {
@@ -903,17 +922,17 @@ impl SDStatus {
 
     /// Video Speed Class (V6, V10, V30, etc)
     pub fn video_speed_class(&self) -> u8 {
-        (self.word(4) & 0xFF) as u8
+        (self.word(3) & 0xFF) as u8
     }
 
     /// Application Performance Class (A1, A2)
     pub fn app_perf_class(&self) -> u8 {
-        ((self.word(6) >> 16) & 0xF) as u8
+        ((self.word(5) >> 16) & 0xF) as u8
     }
 
     /// Discard/TRIM support
     pub fn discard_support(&self) -> bool {
-        (self.word(7) & 0x0200_0000) != 0
+        (self.word(6) & 0x0200_0000) != 0
     }
 }
 
@@ -978,12 +997,11 @@ impl Addressable for Card {
     }
 
     fn supports_cmd23(&self) -> bool {
-        // CMD23 support is disalbed until a reliable detection method is implemented
-        false
+        self.scr.supports_cmd23()
     }
 
     fn supports_acmd23(&self) -> bool {
-        self.scr.supports_acmd23()
+        true // mandatory for SD cards
     }
 }
 

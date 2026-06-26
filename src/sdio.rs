@@ -301,10 +301,12 @@ pub const BUS_CTRL_WIDTH_1BIT: u8 = 0x00;
 pub const BUS_CTRL_WIDTH_4BIT: u8 = 0x02;
 /// 8-bit bus width (MMC only).
 pub const BUS_CTRL_WIDTH_8BIT: u8 = 0x03;
-/// Continuous SPI interrupt (SPI mode only).
+/// Enable continuous SPI interrupt (SPI mode only).
 pub const BUS_CTRL_ECSI: u8 = 0x20;
-/// Card detect disable.
+/// Supports continuous SPI interrupt (SPI mode only).
 pub const BUS_CTRL_SCSI: u8 = 0x40;
+/// Card detect disable.
+pub const BUS_CTRL_CD_DISABLE: u8 = 0x80;
 
 // ── CCCR_CARD_CAP bit fields ──────────────────────────────────────────────────
 
@@ -356,7 +358,7 @@ pub const FBR_BLKSZ_HI: u32 = 0x11;
 /// FBR base for function N (1..7)
 #[inline]
 pub const fn fbr_base(function: u8) -> u32 {
-    0x100 + (function as u32) * 0x100
+    (function as u32) * 0x100
 }
 
 /// FBR registers (per function)
