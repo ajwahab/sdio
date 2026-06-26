@@ -347,6 +347,26 @@ pub fn sd_status(status: &mut SDStatus) -> Acmd13<'_> {
     }
 }
 
+/// ACMD23 — SET_WR_BLK_ERASE_COUNT
+pub struct Acmd23 {
+    pub block_count: u32,
+}
+impl Command for Acmd23 {
+    const INDEX: u8 = 23;
+    type Resp<'a> = R1;
+    fn arg(&self) -> u32 {
+        // Number of write blocks to be pre-erased is a 23-bit field [22:0].
+        self.block_count & 0x7F_FFFF
+    }
+}
+impl ControlCommand for Acmd23 {}
+
+/// ACMD23 — SET_WR_BLK_ERASE_COUNT: set the number of write blocks to be
+/// pre-erased before the next multi-block write, to speed up the write.
+pub fn set_wr_blk_erase_count(block_count: u32) -> Acmd23 {
+    Acmd23 { block_count }
+}
+
 /// ACMD41 — SD_SEND_OP_COND
 pub struct Acmd41 {
     pub host_high_capacity_support: bool,

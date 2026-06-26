@@ -980,7 +980,7 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
 
         if self.info.supports_acmd23() {
             self.bus
-                .send_command(sd::set_block_count(blocks.len() as u32), true)
+                .send_command(sd::set_wr_blk_erase_count(blocks.len() as u32), true)
                 .await?;
         }
 
