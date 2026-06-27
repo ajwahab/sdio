@@ -1,10 +1,10 @@
 # sdio
 
-A no-std library for interfacing with SD cards, EMMC, and/or SDIO cards, using the `MMCBus` trait. Current targeted
-support is stm32 and esp peripherals. Other chips can support SD/SDIO functionality by implementing this trait.
+A no-std library for interfacing with SD cards, EMMC, and/or SDIO cards, using the `MmcBus` trait. Current targeted
+support is STM32 and ESP32 peripherals. Other chips can support SD/SDIO functionality by implementing this trait.
 
 A struct within this crate implements `block_device_driver::BlockDevice`, which allows no-std file systems to write
-cards that are attached to peripherals that implement `MMCBus`. Currently known file systems that implement support
+cards that are attached to peripherals that implement `MmcBus`. Currently known file systems that implement support
 for this include [embedded-fatfs][1] and [exfat-slim][2].
 
 ## Definitions
@@ -17,7 +17,7 @@ for this include [embedded-fatfs][1] and [exfat-slim][2].
 
 ## An [embassy][3] project
 
-This crate is part of the embassy project, designed to improve cross-platform support for native SD/SDIO
+This crate is part of the embassy project, designed to improve cross-platform support for native SD/SDIO host
 peripherals. It is also intended to be a replacement for the now-abandoned `sdio-host` project, with a standard
 implementation of common logic across all devices based on the SDIO standard.
 
@@ -40,7 +40,6 @@ implementation of common logic across all devices based on the SDIO standard.
 ///
 /// If hardware support is available, methods should not return until DAT0 goes high
 /// if the associated reponse has `BUSY` set to `true`.
-///
 pub trait MmcBus {
     /// Send a command that has no data transfer (e.g., CMD0, CMD8, CMD55).
     ///
