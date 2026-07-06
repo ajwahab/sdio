@@ -710,12 +710,15 @@ impl<B: MmcBus, D: DelayNs> SdioCard<B, D> {
     ) -> Result<(), MmcError> {
         self.bus
             .bus
-            .write_blocks(Cmd53BlockWrite {
-                function,
-                increment,
-                addr,
-                buf,
-            })
+            .write_blocks(
+                Cmd53BlockWrite {
+                    function,
+                    increment,
+                    addr,
+                    buf,
+                },
+                false,
+            )
             .await?
             .to_result()
     }

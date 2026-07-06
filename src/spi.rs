@@ -229,10 +229,18 @@ where
         Ok(resp)
     }
 
-    async fn write_blocks<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    async fn write_blocks<'a, C>(
+        &mut self,
+        cmd: C,
+        auto_stop: bool,
+    ) -> Result<C::Resp<'a>, MmcError>
     where
         C: BlockWriteCommand + 'a,
     {
+        if auto_stop {
+            return Err(MmcError::Unsupported);
+        }
+
         self.send_cmd_header(&cmd).await?;
         let block_size = cmd.block_size().len();
         let total = block_size * cmd.block_count() as usize;
