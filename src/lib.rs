@@ -606,6 +606,10 @@ impl Response for R5 {
 /// Bus Tuning Operation
 pub trait TuningOp {
     /// Execute the operation. If error, abort the operation and return.
+    ///
+    /// Otherwise:
+    ///     - If `Ok(true)`, the tap is considered acceptable
+    ///     - If `Ok(false)`, the tap is not considered acceptable.
     fn exec<B: MmcBus>(&mut self, bus: &mut B) -> impl Future<Output = Result<bool, MmcError>>;
 }
 
