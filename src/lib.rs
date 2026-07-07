@@ -869,6 +869,9 @@ pub trait Addressable: Acquirable {
     fn supports_acmd23(&self) -> bool;
 }
 
+/// Represents a block storage device with a 512 byte block size
+pub type DefaultBlockDevice<T, B, D> = BlockDevice<T, B, D, 512>;
+
 /// Represents a block storage device
 pub struct BlockDevice<T: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> {
     info: T,
