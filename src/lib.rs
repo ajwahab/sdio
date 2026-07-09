@@ -30,10 +30,22 @@ const INIT_FREQ: u32 = 400_000;
 #[non_exhaustive]
 pub enum MmcError {
     Timeout,
+    /// CRC error.
     Crc,
     Busy,
+    /// Hardware I/O error
     Io,
-    SignalingSwitchFailed,
+    /// Invalid block size
+    BlockSize,
+    /// Signaling switch failed
+    Signaling,
+    /// Unsupported bus witdth
+    BusWidth,
+    /// Unsupported voltage
+    Voltage,
+    /// Unsupported card type
+    CardType,
+    /// Bus feature is not supported
     Unsupported,
     Card(CardError),
     Sdio(SdioError),

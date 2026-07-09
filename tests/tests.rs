@@ -196,7 +196,7 @@ impl MmcBus for DummyMmcBus {
                 11 => {
                     // CMD11: VOLTAGE_SWITCH
                     if !st.ready {
-                        return Err(MmcError::SignalingSwitchFailed);
+                        return Err(MmcError::Signaling);
                     }
                     st.set_busy(2);
                     Ok(DummyMmcBus::make_response([0, 0, 0, 0]))
