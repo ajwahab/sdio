@@ -153,7 +153,7 @@ impl<'a> TuningOp for Cmd19<'a> {
             0xBB, 0xFF, 0xF7, 0xFF, 0xF7, 0x7F, 0x7B, 0xDE,
         ];
 
-        if bus.read_blocks(&mut *self).await.is_ok() && self.buf[..] == TUNING_PATTERN {
+        if bus.read_blocks(&mut *self, false).await.is_ok() && self.buf[..] == TUNING_PATTERN {
             Ok(true)
         } else {
             Ok(false)
@@ -1073,7 +1073,8 @@ impl Acquirable for Card {
         bus.select_card(Some(bus.rca)).await?;
 
         // ACMD51 — read SCR (must be ≤25 MHz, 1-bit)
-        bus.read_blocks(sd::send_scr(&mut this.scr), true).await?;
+        bus.read_blocks(sd::send_scr(&mut this.scr), false, true)
+            .await?;
 
         // ACMD6 — set bus width BEFORE high-speed signalling switch
         let (bus_width, bw4bit) = match bus_width {
@@ -1118,7 +1119,7 @@ impl Acquirable for Card {
         }
 
         // ACMD13 — SD Status (after signalling switch)
-        bus.read_blocks(sd::sd_status(&mut this.status), true)
+        bus.read_blocks(sd::sd_status(&mut this.status), false, true)
             .await?;
 
         // CMD16 — set block length
@@ -1156,7 +1157,8 @@ impl Card {
                 Signalling::SDR12 => 0xFF_FF00,
             };
 
-        bus.read_blocks(cmd6(set_function, buf), false).await?;
+        bus.read_blocks(cmd6(set_function, buf), false, false)
+            .await?;
 
         // Host is allowed to use the new functions at least 8
         // clocks after the end of the switch command

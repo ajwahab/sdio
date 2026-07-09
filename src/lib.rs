@@ -199,14 +199,23 @@ pub trait MmcBus {
         C: ControlCommand + 'a;
 
     /// Read N blocks of fixed size (CMD17, CMD18, CMD53 block mode).
-    fn read_blocks<'a, C>(&mut self, cmd: C) -> impl Future<Output = Result<C::Resp<'a>, MmcError>>
+    ///
+    /// If called with auto_stop set to true, CMD12 must be issued after completing this command.
+    fn read_blocks<'a, C>(
+        &mut self,
+        cmd: C,
+        auto_stop: bool,
+    ) -> impl Future<Output = Result<C::Resp<'a>, MmcError>>
     where
         C: BlockReadCommand + 'a;
 
     /// Write N blocks of fixed size (CMD24, CMD25, CMD53 block mode).
+    ///
+    /// If called with auto_stop set to true, CMD12 must be issued after completing this command.
     fn write_blocks<'a, C>(
         &mut self,
         cmd: C,
+        auto_stop: bool,
     ) -> impl Future<Output = Result<C::Resp<'a>, MmcError>>
     where
         C: BlockWriteCommand + 'a;
@@ -256,6 +265,11 @@ pub trait MmcBus {
         false
     }
 
+    /// Optional: whether the host supports the 'auto stop' feature.
+    fn supports_auto_stop(&self) -> bool {
+        false
+    }
+
     /// Optional: the maximum bus width available to the host
     fn supports_bus_width(&self) -> BusWidth {
         BusWidth::W1
@@ -280,18 +294,22 @@ impl<T: MmcBus> MmcBus for &mut T {
         T::send_command(self, cmd).await
     }
 
-    async fn read_blocks<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    async fn read_blocks<'a, C>(&mut self, cmd: C, auto_stop: bool) -> Result<C::Resp<'a>, MmcError>
     where
         C: BlockReadCommand + 'a,
     {
-        T::read_blocks(self, cmd).await
+        T::read_blocks(self, cmd, auto_stop).await
     }
 
-    async fn write_blocks<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
+    async fn write_blocks<'a, C>(
+        &mut self,
+        cmd: C,
+        auto_stop: bool,
+    ) -> Result<C::Resp<'a>, MmcError>
     where
         C: BlockWriteCommand + 'a,
     {
-        T::write_blocks(self, cmd).await
+        T::write_blocks(self, cmd, auto_stop).await
     }
 
     async fn read_bytes<'a, C>(&mut self, cmd: C) -> Result<C::Resp<'a>, MmcError>
@@ -329,6 +347,10 @@ impl<T: MmcBus> MmcBus for &mut T {
 
     fn supports_1v8(&self) -> bool {
         T::supports_1v8(self)
+    }
+
+    fn supports_auto_stop(&self) -> bool {
+        T::supports_auto_stop(self)
     }
 
     fn supports_bus_width(&self) -> BusWidth {
@@ -807,10 +829,11 @@ impl<B: MmcBus, D: DelayNs> BusAdapter<B, D> {
     pub async fn read_blocks<'a, C: BlockReadCommand + 'a>(
         &mut self,
         cmd: C,
+        auto_stop: bool,
         app_cmd: bool,
     ) -> Result<C::Resp<'a>, MmcError> {
         self.app_cmd(app_cmd).await?;
-        let res = self.bus.read_blocks(cmd).await?;
+        let res = self.bus.read_blocks(cmd, auto_stop).await?;
         self.wait_if_required::<C::Resp<'a>>().await?;
 
         Ok(res)
@@ -824,10 +847,11 @@ impl<B: MmcBus, D: DelayNs> BusAdapter<B, D> {
     pub async fn write_blocks<'a, C: BlockWriteCommand + 'a>(
         &mut self,
         cmd: C,
+        auto_stop: bool,
         app_cmd: bool,
     ) -> Result<C::Resp<'a>, MmcError> {
         self.app_cmd(app_cmd).await?;
-        let res = self.bus.write_blocks(cmd).await?;
+        let res = self.bus.write_blocks(cmd, auto_stop).await?;
         self.wait_if_required::<C::Resp<'a>>().await?;
 
         Ok(res)
@@ -939,7 +963,11 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
         block: &mut Aligned<A4, [u8; BLOCK_SIZE]>,
     ) -> Result<(), MmcError> {
         self.bus
-            .read_blocks(read_single_block(self.get_addr(block_idx), block), false)
+            .read_blocks(
+                read_single_block(self.get_addr(block_idx), block),
+                false,
+                false,
+            )
             .await?
             .to_result()?;
 
@@ -953,15 +981,20 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
         block_idx: u32,
         blocks: &mut [Aligned<A4, [u8; BLOCK_SIZE]>],
     ) -> Result<(), MmcError> {
+        let supports_auto_stop = self.bus.bus.supports_auto_stop();
+
         self.bus
             .read_blocks(
                 read_multiple_blocks(self.get_addr(block_idx), blocks),
+                supports_auto_stop,
                 false,
             )
             .await?
             .to_result()?;
 
-        self.bus.send_command(stop_transmission(), false).await?;
+        if !supports_auto_stop {
+            self.bus.send_command(stop_transmission(), false).await?;
+        }
 
         Ok(())
     }
@@ -974,7 +1007,11 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
         block: &Aligned<A4, [u8; BLOCK_SIZE]>,
     ) -> Result<(), MmcError> {
         self.bus
-            .write_blocks(write_single_block(self.get_addr(block_idx), block), false)
+            .write_blocks(
+                write_single_block(self.get_addr(block_idx), block),
+                false,
+                false,
+            )
             .await?
             .to_response()
             .to_result()?;
@@ -996,6 +1033,7 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
                 .to_result()?;
         }
 
+        let supports_auto_stop = self.bus.bus.supports_auto_stop();
         let supports_cmd23 = self.info.supports_cmd23();
 
         if supports_cmd23 {
@@ -1008,13 +1046,14 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
         self.bus
             .write_blocks(
                 write_multiple_blocks(self.get_addr(block_idx), blocks),
+                !supports_cmd23 && supports_auto_stop,
                 false,
             )
             .await?
             .to_response()
             .to_result()?;
 
-        if !supports_cmd23 {
+        if !supports_cmd23 && !supports_auto_stop {
             self.bus.send_command(stop_transmission(), false).await?;
         }
 
