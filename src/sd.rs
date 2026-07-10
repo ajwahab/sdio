@@ -1098,7 +1098,7 @@ impl Acquirable for Card {
             bus.bus.set_bus(bus_width, freq)?;
 
             bus.bus
-                .tune_bus(bus_width, freq, &mut send_tuning_block(0, &mut buf))
+                .tune_bus(bus_width, freq, send_tuning_block(0, &mut buf))
                 .await?;
         }
 

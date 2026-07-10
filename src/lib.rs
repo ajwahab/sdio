@@ -255,7 +255,7 @@ pub trait MmcBus {
         &mut self,
         width: BusWidth,
         hz: u32,
-        op: &mut O,
+        op: O,
     ) -> impl Future<Output = Result<(), MmcError>>
     where
         O: TuningOp,
@@ -340,7 +340,7 @@ impl<T: MmcBus> MmcBus for &mut T {
         T::write_bytes(self, cmd).await
     }
 
-    async fn tune_bus<O>(&mut self, width: BusWidth, hz: u32, op: &mut O) -> Result<(), MmcError>
+    async fn tune_bus<O>(&mut self, width: BusWidth, hz: u32, op: O) -> Result<(), MmcError>
     where
         O: TuningOp,
     {
