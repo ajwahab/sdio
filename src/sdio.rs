@@ -380,24 +380,10 @@ pub const fn fbr_block_size_high(function: u8) -> u32 {
     fbr_base(function) + 0x11
 }
 
-/// SDIO Response
-pub struct SdioResponse {
-    pub data: u8,
-    pub flags: u8,
-}
-
-impl From<R5> for SdioResponse {
-    fn from(resp: R5) -> Self {
-        SdioResponse {
-            data: resp.data,
-            flags: resp.flags,
-        }
-    }
-}
-
 /// SDIO Interface
 pub struct SdioCard<B: MmcBus, D: DelayNs> {
     bus: BusAdapter<B, D>,
+    freq: u32,
     ocr: OCR<SDIO>,
 }
 
@@ -414,19 +400,22 @@ impl<B: MmcBus, D: DelayNs> SdioCard<B, D> {
     pub fn new_uninit(bus: B, delay: D) -> Self {
         Self {
             bus: BusAdapter { bus, delay, rca: 0 },
+            freq: 0,
             ocr: OCR::default(),
         }
     }
 
     /// Reacquire the device
     pub async fn reacquire(&mut self, freq: u32) -> Result<(), MmcError> {
-        self.acquire(freq).await
+        self.freq = self.acquire(freq).await?;
+
+        Ok(())
     }
 
     /// Initializes the card into a known state (or at least tries to).
-    async fn acquire(&mut self, freq: u32) -> Result<(), MmcError> {
-        // Clamp the frequency to the supported bus frequency.
-        let freq = freq.clamp(0, self.bus.bus.supports_frequency());
+    async fn acquire(&mut self, freq: u32) -> Result<u32, MmcError> {
+        // Clamp the frequency to the supported bus frequency. UHS is currently not implemented for SD/IO.
+        let freq = freq.min(self.bus.bus.supports_frequency()).min(50_000_000);
 
         // Get the bus width configured in the Sdmmc peripheral
         let bus_width = self.bus.bus.supports_bus_width();
@@ -490,7 +479,7 @@ impl<B: MmcBus, D: DelayNs> SdioCard<B, D> {
         .await?;
 
         // Up to 25Mhz
-        self.bus.bus.set_bus(bus_width, freq.clamp(0, 25_000_000))?;
+        self.bus.bus.set_bus(bus_width, freq.min(25_000_000))?;
 
         let hs_reg = self.cmd52_read(0, CCCR_HIGH_SPEED).await?;
         if freq > 25_000_000 && hs_reg & HIGH_SPEED_SHS != 0 {
@@ -499,9 +488,17 @@ impl<B: MmcBus, D: DelayNs> SdioCard<B, D> {
 
             // Up to max_f
             self.bus.bus.set_bus(bus_width, freq)?;
-        }
 
-        Ok(())
+            Ok(freq)
+        } else {
+            Ok(25_000_000)
+        }
+    }
+
+    /// Get the card frequency
+    #[inline]
+    pub const fn freq(&self) -> u32 {
+        self.freq
     }
 
     // ── Function management ───────────────────────────────────────────────────
