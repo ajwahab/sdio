@@ -948,6 +948,31 @@ pub enum Signalling {
     DDR50,
 }
 
+impl Signalling {
+    #[inline]
+    pub const fn from_freq(freq: u32) -> Self {
+        if freq > 100_000_000 {
+            Self::SDR104
+        } else if freq > 50_000_000 {
+            Self::SDR50
+        } else if freq > 25_000_000 {
+            Self::SDR25
+        } else {
+            Self::SDR12
+        }
+    }
+
+    #[inline]
+    pub const fn to_freq(&self) -> u32 {
+        match *self {
+            Self::SDR12 => 25_000_000,
+            Self::SDR25 | Self::DDR50 => 50_000_000,
+            Self::SDR50 => 100_000_000,
+            Self::SDR104 => 208_000_000,
+        }
+    }
+}
+
 /// Represents either an SD or EMMC card
 trait Acquirable: Sized + Clone + Default {
     // Acquire a storage device from an initialized idle bus
@@ -956,7 +981,7 @@ trait Acquirable: Sized + Clone + Default {
         block_size: BlockSize,
         bus_width: BusWidth,
         freq: u32,
-    ) -> impl Future<Output = Result<Self, MmcError>>;
+    ) -> impl Future<Output = Result<(Self, u32), MmcError>>;
 }
 
 /// Represents either an SD or EMMC card
@@ -984,6 +1009,7 @@ pub type DefaultBlockDevice<T, B, D> = BlockDevice<T, B, D, 512>;
 /// Represents a block storage device
 pub struct BlockDevice<T: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize> {
     info: T,
+    freq: u32,
     bus: BusAdapter<B, D>,
 }
 
@@ -1003,6 +1029,7 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
     pub fn new_uninit(bus: B, delay: D) -> Self {
         Self {
             info: A::default(),
+            freq: 0,
             bus: BusAdapter { bus, delay, rca: 0 },
         }
     }
@@ -1014,14 +1041,22 @@ impl<A: Addressable, B: MmcBus, D: DelayNs, const BLOCK_SIZE: usize>
         let bus_width = self.bus.bus.supports_bus_width();
 
         self.bus.init_idle().await?;
-        self.info = A::acquire(&mut self.bus, block_size(BLOCK_SIZE), bus_width, freq).await?;
+        (self.info, self.freq) =
+            A::acquire(&mut self.bus, block_size(BLOCK_SIZE), bus_width, freq).await?;
 
         Ok(())
     }
 
     /// Get the card info
-    pub fn card(&self) -> A {
-        self.info.clone()
+    #[inline]
+    pub const fn card(&self) -> &A {
+        &self.info
+    }
+
+    /// Get the card frequency
+    #[inline]
+    pub const fn freq(&self) -> u32 {
+        self.freq
     }
 
     fn get_addr(&self, block_idx: u32) -> u32 {
